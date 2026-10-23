@@ -3,7 +3,8 @@ name: Build Hermes Agent Docker
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
@@ -12,22 +13,46 @@ permissions:
 
 jobs:
   build:
+    name: Build and Push Hermes Agent
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout
+      - name: Checkout Repository
         uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
-          username: $&#123;&#123; github.actor &#125;&#125;
-          password: $&#123;&#123; secrets.GITHUB_TOKEN &#125;&#125;
+          username: bubusky12
+          password: $&#123;&#123; secrets.GHCR_TOKEN &#125;&#125;
 
-      - name: Build and push Docker image
+      - name: Extract Docker Metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/bubusky12/hermes-agent-pterodactyl
+          tags: |
+            type=raw,value=latest
+            type=sha,prefix=sha-
+
+      - name: Build and Push Docker Image
         uses: docker/build-push-action@v6
         with:
           context: .
+          file: ./Dockerfile
+          platforms: linux/amd64
           push: true
-          tags: ghcr.io/bubusky12/hermes-agent-pterodactyl:latest
-  
+          tags: $&#123;&#123; steps.meta.outputs.tags &#125;&#125;
+          labels: $&#123;&#123; steps.meta.outputs.labels &#125;&#125;
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build Summary
+        run: |
+          echo "## Hermes Agent Docker Build" >> "$GITHUB_STEP_SUMMARY"
+          echo "Image: ghcr.io/bubusky12/hermes-agent-pterodactyl:latest" >> "$GITHUB_STEP_SUMMARY"
+          echo "Status: Successfully pushed to GHCR" >> "$GITHUB_STEP_SUMMARY"
